@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RenoiseScriptingTool doc_version="0">
+  <ApiVersion>6.2</ApiVersion>
+  <Id>com.example.MyTool</Id>
+  <Version>1.00</Version>
+  <Author>Example Author [author@example.com]</Author>
+  <Name>My Tool</Name>
+  <Category>Workflow</Category>
+  <Description>A Renoise tool built from the ReSlop starter kit.</Description>
+  <Platform>Windows, Mac, Linux</Platform>
+  <License>MIT</License>
+  <DocumentationPath>README.md</DocumentationPath>
+  <Homepage>https://github.com/example/my-tool</Homepage>
+</RenoiseScriptingTool>

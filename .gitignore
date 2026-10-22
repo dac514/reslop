@@ -1,0 +1,18 @@
+# Written by Renoise into the tool folder at runtime
+*.xrnx/preferences.xml
+
+# Dev bridge runtime files and local overrides
+*.xrnx/dev/.port
+*.xrnx/dev/.token
+*.xrnx/dev/port
+*.xrnx/dev/bind
+
+# Build output and tool logs
+dist/
+.lls-log/
+log/
+
+# OS / editor noise
+__pycache__/
+.DS_Store
+Thumbs.db

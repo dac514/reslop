@@ -1,0 +1,162 @@
+---@meta
+error("Do not try to execute this file. It's just a type definition file.")
+---
+---Please read the introduction at https://github.com/renoise/xrnx/
+---to get an overview about the complete API, and scripting for
+---Renoise in general...
+---
+
+--------------------------------------------------------------------------------
+---## PluginInfo
+
+---@class PluginInfo
+---@field path string The plugin's path used by load_plugin()
+---@field name string The plugin's name
+---@field short_name string The plugin's name as displayed in shortened lists
+---@field favorite_name string The plugin's name as displayed in favorites
+---@field is_favorite string true if the plugin is a favorite
+---@field is_bridged string true if the plugin is a bridged plugin
+
+--------------------------------------------------------------------------------
+---## renoise.InstrumentPluginProperties
+
+---@class renoise.InstrumentPluginProperties
+renoise.InstrumentPluginProperties = {}
+
+---### properties
+
+---@class renoise.InstrumentPluginProperties
+---
+---List of all currently available plugins. This is a list of
+---unique plugin names which also contains the plugin's type (VST/AU/DSSI/...),
+---not including the vendor names as visible in Renoise's GUI. So its an
+---identifier, and not the name as visible in the GUI. When no plugin is loaded,
+---the identifier is an empty string.
+---**READ-ONLY**
+---@field available_plugins string[]
+---
+---Returns a list of tables containing more information about the plugins.
+---**READ-ONLY**
+---@field available_plugin_infos PluginInfo[]
+---
+---Returns true when a plugin is present; loaded successfully.
+---@see renoise.PluginProperties.plugin_device_observable for related notifications.
+---**READ-ONLY**
+---@field plugin_loaded boolean
+---
+---Valid object for successfully loaded plugins, otherwise nil. Alias plugin
+---instruments of FX will return the resolved device, will link to the device
+---the alias points to.
+---The observable is fired when the device changes: when a plugin gets loaded or
+---unloaded or a plugin alias is assigned or unassigned.
+---**READ-ONLY**
+---@field plugin_device (renoise.InstrumentPluginDevice|renoise.AudioDevice)?
+---@field plugin_device_observable renoise.Document.Observable **READ-ONLY**
+---
+---Valid for loaded and unloaded plugins,
+---0 when no alias instrument is set.
+---**READ-ONLY**
+---@field alias_instrument_index integer
+---@field alias_instrument_index_observable renoise.Document.Observable **READ-ONLY**
+---0 when no alias FX is set
+---**READ-ONLY**
+---@field alias_fx_track_index integer
+---@field alias_fx_track_index_observable renoise.Document.Observable **READ-ONLY**
+---0 when no alias FX is set
+---**READ-ONLY**
+---@field alias_fx_device_index integer
+---@field alias_fx_device_index_observable renoise.Document.Observable **READ-ONLY**
+---
+---Valid for loaded and unloaded plugins.
+---target instrument index of the plugin's MIDI output (when present)
+---**READ-ONLY**
+---@field midi_output_routing_index integer 0 when no routing is set
+---@field midi_output_routing_index_observable renoise.Document.Observable **READ-ONLY**
+---
+---Valid for loaded and unloaded plugins.
+---Range: (1 - 16)
+---@field channel integer
+---@field channel_observable renoise.Document.Observable **READ-ONLY**
+---@field transpose integer Range: (-120 - 120)
+---@field transpose_observable renoise.Document.Observable **READ-ONLY**
+---
+---Valid for loaded and unloaded plugins.
+---Range: (0.0 - 4.0) linear gain
+---@field volume number
+---@field volume_observable renoise.Document.Observable **READ-ONLY**
+---
+---Valid for loaded and unloaded plugins.
+---@field auto_suspend boolean
+---@field auto_suspend_observable renoise.Document.Observable **READ-ONLY**
+
+---### functions
+
+---Load an existing, new, non aliased plugin. Pass an empty string to unload
+---an already assigned plugin. plugin_path must be one of the available plugins
+---@see renoise.InstrumentPluginProperties.available_plugins
+---@param plugin_path string
+---@return boolean success
+function renoise.InstrumentPluginProperties:load_plugin(plugin_path) end
+
+--------------------------------------------------------------------------------
+---## renoise.InstrumentPluginDevice
+
+---@class renoise.InstrumentPluginDevice
+renoise.InstrumentPluginDevice = {}
+
+---### properties
+
+---@class renoise.InstrumentPluginDevice
+---
+---Device name.
+---@field name string **READ-ONLY**
+---
+---@field short_name string **READ-ONLY**
+---
+---
+---@field presets string[] **READ-ONLY**
+---Preset handling. 0 when when none is active (or available)
+---@field active_preset integer
+---@field active_preset_observable renoise.Document.Observable
+---raw XML data of the active preset
+---@field active_preset_data string
+---
+---
+---@field parameters renoise.DeviceParameter[] **READ-ONLY**
+---
+---Returns whether or not the plugin provides its own custom GUI.
+---**READ-ONLY**
+---@field external_editor_available boolean
+---
+---When the plugin has no custom GUI, Renoise will create a dummy editor for it which
+---lists the plugin parameters.
+---set to true to show the editor, false to close it
+---@field external_editor_visible boolean
+---
+---Returns a string that uniquely identifies the plugin
+---@see renoise.InstrumentPluginProperties.available_plugins for the list of valid paths
+---The string can be passed into: renoise.InstrumentPluginProperties:load_plugin()
+---**READ-ONLY**
+---@field device_path string
+
+---### functions
+
+---Access to a single preset name by index. Use properties 'presets' to iterate
+---over all presets and to query the presets count.
+---@param index integer
+---@return string
+function renoise.InstrumentPluginDevice:preset(index) end
+
+---Access to a single parameter by index. Use properties 'parameters' to iterate
+---over all parameters and to query the parameter count.
+---@param index integer
+---@return renoise.DeviceParameter
+function renoise.InstrumentPluginDevice:parameter(index) end
+
+--------------------------------------------------------------------------------
+---## renoise.InstrumentDevice
+
+---**Deprecated.** Use `renoise.InstrumentPluginDevice` instead.
+---@deprecated
+---@class renoise.InstrumentDevice : renoise.InstrumentPluginDevice
+renoise.InstrumentDevice = {}

@@ -1,0 +1,598 @@
+---@meta
+error("Do not try to execute this file. It's just a type definition file.")
+---
+---Please read the introduction at https://github.com/renoise/xrnx/
+---to get an overview about the complete API, and scripting for
+---Renoise in general...
+---
+
+--------------------------------------------------------------------------------
+---## renoise.SongPos
+
+---Helper class used in Transport and Song, representing a position in the song.
+---@class renoise.SongPos
+---Position in the pattern sequence.
+---@field sequence integer
+---Position in the pattern at the given pattern sequence.
+---@field line integer
+---@overload fun(): renoise.SongPos
+---@overload fun(sequence: integer, line: integer): renoise.SongPos
+renoise.SongPos = {}
+
+---### operators
+
+---operator==(song_pos, song_pos): boolean
+---operator<(song_pos, song_pos): boolean
+
+--------------------------------------------------------------------------------
+---## renoise.Song
+
+---@class renoise.Song
+renoise.Song = {}
+
+---Selection range in the current pattern
+---@class PatternSelection
+---@field start_line integer? Start pattern line index
+---@field start_track integer? Start track index
+---@field start_column integer? Start column index within start_track
+---@field end_line integer? End pattern line index
+---@field end_track integer? End track index
+---@field end_column integer? End column index within end_track
+
+---Selection range in the current phrase
+---@class PhraseSelection
+---@field start_line integer? Start pattern line index
+---@field start_column integer? Start column index within start_track
+---@field end_line integer? End pattern line index
+---@field end_column integer? End column index within end_track
+
+---### constants
+
+renoise.Song.MAX_NUMBER_OF_INSTRUMENTS = 255
+
+---@enum renoise.Song.SubColumnType
+---@diagnostic disable-next-line: missing-fields
+renoise.Song = {
+  SUB_COLUMN_NOTE = 1,
+  SUB_COLUMN_INSTRUMENT = 2,
+  SUB_COLUMN_VOLUME = 3,
+  SUB_COLUMN_PANNING = 4,
+  SUB_COLUMN_DELAY = 5,
+  SUB_COLUMN_SAMPLE_EFFECT_NUMBER = 6,
+  SUB_COLUMN_SAMPLE_EFFECT_AMOUNT = 7,
+  SUB_COLUMN_EFFECT_NUMBER = 8,
+  SUB_COLUMN_EFFECT_AMOUNT = 9
+}
+
+---### properties
+
+---Renoise's main document - the song.
+---@class renoise.Song
+---
+---When the song is loaded from or saved to a file, the absolute
+---path and name to the XRNS file, otherwise an empty string.
+---**READ-ONLY**
+---@field file_name string
+---
+---Song Comments
+---@field artist string
+---@field artist_observable renoise.Document.Observable **READ-ONLY**
+---@field name string
+---@field name_observable renoise.Document.Observable **READ-ONLY**
+---Note: All property tables of basic types in the API are temporary copies.
+---In other words `comments = { "Hello", "World" }` will work,
+---`comments[1] = "Hello"; renoise.song().comments[2] = "World"`
+---will *not* work.
+---@field comments string[]
+---@field comments_observable renoise.Document.ObservableList **READ-ONLY**
+---Notifier is called as soon as any paragraph in the comments change.
+---**READ-ONLY**
+---@field comments_assignment_observable renoise.Document.Observable
+---Set this to true to show the comments dialog after loading a song
+---@field show_comments_after_loading boolean
+---@field show_comments_after_loading_observable renoise.Document.Observable **READ-ONLY**
+---
+---Inject/fetch custom XRNX scripting tool data into the song. Can only be called
+---from scripts that are running in Renoise scripting tool bundles; attempts to
+---access the data from e.g. the scripting terminal will result in an error.
+---Returns nil when no data is present.
+---
+---Each tool gets it's own data slot in the song, which is resolved by the tool's
+---bundle id, so this data is unique for every tool and persistent across tools
+---with the same bundle id (but possibly different versions).
+---If you want to store renoise.Document data in here, you can use the
+---renoise.Document's 'to_string' and 'from_string' functions to serialize the data.
+---Alternatively, write your own serializers for your custom data.
+---@field tool_data string?
+---
+---True while rendering is in progress.
+---@see renoise.Song.render
+---**READ-ONLY**
+---@field rendering boolean
+---The current render progress amount
+---@see renoise.Song.render
+---Range: (0.0 - 1.0)
+---**READ-ONLY**
+---@field rendering_progress number
+---
+---
+---@field transport renoise.Transport **READ-ONLY**
+---
+---
+---@field sequencer renoise.PatternSequencer **READ-ONLY**
+---
+---
+---@field pattern_iterator renoise.PatternIterator **READ-ONLY**
+---
+---number of normal playback tracks (non-master or sends) in song.
+---**READ-ONLY**
+---@field sequencer_track_count integer
+---number of send tracks in song.
+---**READ-ONLY**
+---@field send_track_count integer
+---
+---Instrument arrays
+---**READ-ONLY**
+---@field instruments renoise.Instrument[]
+---@field instruments_observable renoise.Document.ObservableList **READ-ONLY**
+---Pattern arrays
+---**READ-ONLY**
+---@field patterns renoise.Pattern[]
+---@field patterns_observable renoise.Document.ObservableList **READ-ONLY**
+---Track array
+---**READ-ONLY**
+---@field tracks renoise.Track[]
+---Note, when notifiers on this observable fire, only the `tracks` field will reflect
+---the change immediately, other parts of the song that depend on tracks (like `PatternTrack`s in patterns)
+---will still have the old state. Combine with `Tool.app_idle_observable` to react to
+---song-wide changes in a delayed manner, or use a notifiers on the dependent observables you need.
+---**READ-ONLY**
+---@field tracks_observable renoise.Document.ObservableList **READ-ONLY**
+---
+---Selected in the instrument box.
+---**READ-ONLY**
+---@field selected_instrument renoise.Instrument
+---@field selected_instrument_observable renoise.Document.Observable **READ-ONLY**
+---Selected instrument index in the instrument box.
+---Note, Renoise displays zero-based indices here
+---but this value starts from one.
+---@field selected_instrument_index integer
+---@field selected_instrument_index_observable renoise.Document.Observable **READ-ONLY**
+---
+---Selected phrase the instrument's phrase map piano view.
+---**READ-ONLY**
+---@field selected_phrase renoise.InstrumentPhrase?
+---@field selected_phrase_observable renoise.Document.Observable **READ-ONLY**
+---Selected phrase index the instrument's phrase map piano view.
+---@field selected_phrase_index integer
+---
+---Selected in the instrument's sample list.
+---Only nil when no samples are present in the selected instrument.
+---**READ-ONLY**
+---@field selected_sample renoise.Sample?
+---@field selected_sample_observable renoise.Document.Observable **READ-ONLY**
+---Selected sample index in the instrument's sample list.
+---Only 0 when no samples are present in the selected instrument.
+---@field selected_sample_index integer
+---
+---Selected in the instrument's modulation view.
+---**READ-ONLY**
+---@field selected_sample_modulation_set renoise.SampleModulationSet?
+---@field selected_sample_modulation_set_observable renoise.Document.Observable **READ-ONLY**
+---Selected modulation set index in the instrument's modulation view.
+---@field selected_sample_modulation_set_index integer
+---
+---Selected in the instrument's effects view.
+---**READ-ONLY**
+---@field selected_sample_device_chain renoise.SampleDeviceChain?
+---@field selected_sample_device_chain_observable renoise.Document.Observable **READ-ONLY**
+---Selected chain index in the instrument's effects view.
+---@field selected_sample_device_chain_index integer
+---
+---Selected in the sample effect mixer.
+---**READ-ONLY**
+---@field selected_sample_device renoise.AudioDevice?
+---@field selected_sample_device_observable renoise.Document.Observable **READ-ONLY**
+---Selected device index in the sample effect mixer.
+---@field selected_sample_device_index integer
+---
+---Selected in the pattern editor or mixer.
+---**READ-ONLY**
+---@field selected_track renoise.Track
+---@field selected_track_observable renoise.Document.Observable **READ-ONLY**
+---Selected track index in the pattern editor or mixer.
+---@field selected_track_index integer
+---@field selected_track_index_observable renoise.Document.Observable **READ-ONLY**
+---
+---Selected in the track DSP chain editor.
+---**READ-ONLY**
+---@field selected_track_device renoise.AudioDevice?
+---@field selected_track_device_observable renoise.Document.Observable **READ-ONLY**
+---Selected device index in the track DSP chain editor.
+---@field selected_track_device_index integer
+---
+---**Deprecated.** **READ-ONLY** Use 'selected_track_device' instead.
+---@deprecated
+---@field selected_device renoise.AudioDevice?
+---**Deprecated.** Use 'selected_track_device_observable' instead.
+---@deprecated
+---@field selected_device_observable renoise.Document.Observable
+---**Deprecated.** **READ-ONLY** Use 'selected_track_device_index' instead.
+---@deprecated
+---@field selected_device_index integer
+---**Deprecated.** **READ-ONLY** Use 'selected_automation_parameter' instead.
+---@deprecated
+---@field selected_parameter renoise.DeviceParameter?
+---@field selected_parameter_observable renoise.Document.Observable
+---
+---Selected parameter in the automation editor.
+---When setting a new parameter, parameter must be automateable and
+---must be one of the currently selected track device chain.
+---**READ-ONLY**
+---@field selected_automation_parameter renoise.DeviceParameter?
+---@field selected_automation_parameter_observable renoise.Document.Observable **READ-ONLY**
+---Parent device of 'selected_automation_parameter'.
+---**READ-ONLY**
+---@field selected_automation_device renoise.AudioDevice?
+---@field selected_automation_device_observable renoise.Document.Observable **READ-ONLY**
+---
+---The currently edited pattern.
+---**READ-ONLY**
+---@field selected_pattern renoise.Pattern
+---@field selected_pattern_observable renoise.Document.Observable **READ-ONLY**
+---The currently edited pattern index.
+---@field selected_pattern_index integer
+---@field selected_pattern_index_observable renoise.Document.Observable **READ-ONLY**
+---
+---The currently edited pattern track object.
+---and selected_track_observable for notifications.
+---**READ-ONLY**
+---@field selected_pattern_track renoise.PatternTrack
+---@field selected_pattern_track_observable renoise.Document.Observable **READ-ONLY**
+---
+---The currently edited sequence position.
+---@field selected_sequence_index integer
+---@field selected_sequence_index_observable renoise.Document.Observable **READ-ONLY**
+---
+---The currently edited line in the edited pattern.
+---**READ-ONLY**
+---@field selected_line renoise.PatternLine
+---@field selected_line_index integer
+---The currently edited column in the selected line in the edited
+---sequence/pattern. Nil when an effect column is selected.
+---**READ-ONLY**
+---@field selected_note_column renoise.NoteColumn?
+---@field selected_note_column_index integer
+---The currently edited column in the selected line in the edited
+---sequence/pattern. Nil when a note column is selected.
+---**READ-ONLY**
+---@field selected_effect_column renoise.EffectColumn?
+---@field selected_effect_column_index integer
+---The currently edited sub column type within the selected
+---note/effect column.
+---**READ-ONLY**
+---@field selected_sub_column_type renoise.Song.SubColumnType
+---
+---Read/write access to the selection in the pattern editor.
+---
+---Line indexes are valid from 1 to patterns[].number_of_lines
+---Track indexes are valid from 1 to #tracks
+---Column indexes are valid from 1 to
+--- (tracks[].visible_note_columns + tracks[].visible_effect_columns)
+---
+---When setting the selection, all members are optional. Combining them in
+---various different ways will affect how specific the selection is. When
+---`selection_in_pattern` returns nil or is set to nil, no selection is present.
+---
+---### examples:
+---```lua
+---renoise.song().selection_in_pattern = {}
+--- --> clear
+---renoise.song().selection_in_pattern = { start_line = 1, end_line = 4 }
+--- --> select line 1 to 4, first to last track
+---renoise.song().selection_in_pattern =
+--- { start_line = 1, start_track = 1, end_line = 4, end_track = 1 }
+--- --> select line 1 to 4, in the first track only
+---```
+---@field selection_in_pattern PatternSelection?
+---
+---The currently edited line in the currently edited phrase.
+---Nil when no phrase is selected.
+---**READ-ONLY**
+---@field selected_phrase_line renoise.PatternLine?
+---The currently edited line index in the currently edited phrase.
+---0 when no phrase is selected.
+---@field selected_phrase_line_index integer
+---The currently edited column in the selected line in the currently
+---edited phrase. Nil when no phrase is selected or when an effect column is selected.
+---**READ-ONLY**
+---@field selected_phrase_note_column renoise.NoteColumn?
+---The currently edited column index in the selected line in the currently edited
+---phrase. 0 when no phrase is selected or when an effect column is selected.
+---@field selected_phrase_note_column_index integer
+---The currently edited column in the selected line in the currently
+---edited phrase. Nil when no phrase is selected or when a note column is selected.
+---**READ-ONLY**
+---@field selected_phrase_effect_column renoise.EffectColumn?
+---The currently edited effect column index in the selected line in the currently
+---edited phrase. 0 when no phrase is selected or when a note column is selected.
+---@field selected_phrase_effect_column_index integer
+---The currently edited sub column type within the selected
+---note/effect column in the current phrase. 0 when no phrase is selected.
+---**READ-ONLY**
+---@field selected_phrase_sub_column_type renoise.Song.SubColumnType
+---
+---Same as `selection_in_pattern` but for the currently selected phrase (if any).
+---@field selection_in_phrase PhraseSelection?
+
+---### functions
+
+---True while an undo/redo action is invoked. This may be useful to check in notifiers,
+---to figure out if the document currently changes because of an undo/redo operation.
+function renoise.Song:is_undo_redoing() end
+
+---Test if something in the song can be undone.
+---@return boolean
+function renoise.Song:can_undo() end
+
+---Undo the last performed action. Will do nothing if nothing can be undone.
+function renoise.Song:undo() end
+
+---Test if something in the song can be redone.
+---@return boolean
+function renoise.Song:can_redo() end
+
+---Redo a previously undo action. Will do nothing if nothing can be redone.
+function renoise.Song:redo() end
+
+---When modifying the song, Renoise will automatically add descriptions for
+---undo/redo by looking at what first changed (a track was inserted, a pattern
+---line changed, and so on). When the song is changed from an action in a menu
+---entry callback, the menu entry's label will automatically be used for the
+---undo description.
+---If those auto-generated names do not work for you, or you want to use
+---something more descriptive, you can, **before changing anything in the song**,
+---give your changes a custom undo description (like: "Generate Synth Sample")
+---@param description string
+function renoise.Song:describe_undo(description) end
+
+---Same as `describe_undo`, but additionally this tries to merge the following
+---changes to the document with the last one, if the description matches the last
+---description and the given timeout was not reached since the last describe_batch_undo
+---call.
+---
+---Calls to `describe_undo` from other tools, or from Renoise internally, will cancel
+---batches and split the undo action.
+---
+---Batches can be useful to combine multiple changes in the document into a single
+---udo/redo step, when the changes happen asynchroniously, for example a process
+---sliced action (via Lua coroutines).
+---@param description string
+---@param timeout_ms number? Default: 2000
+function renoise.Song:describe_batch_undo(description, timeout_ms) end
+
+---Insert a new track at the given index. Inserting a track behind or at the
+---Master Track's index will create a Send Track. Otherwise, a regular track is
+---created.
+---@param index integer
+---@return renoise.Track
+function renoise.Song:insert_track_at(index) end
+
+---Delete an existing track. The Master track can not be deleted, but all Sends
+---can. Renoise needs at least one regular track to work, thus trying to
+---delete all regular tracks will fire an error.
+---@param index integer
+function renoise.Song:delete_track_at(index) end
+
+---Swap the positions of two tracks. A Send can only be swapped with a Send
+---track and a regular track can only be swapped with another regular track.
+---The Master can not be swapped at all.
+---@param index1 integer
+---@param index2 integer
+function renoise.Song:swap_tracks_at(index1, index2) end
+
+---Access to a single track by index. Use properties 'tracks' to iterate over
+---all tracks and to query the track count.
+---@param index integer
+---@return renoise.Track
+function renoise.Song:track(index) end
+
+---Set the selected track to prev relative to the current track. Takes
+---care of skipping over hidden tracks and wrapping around at the edges.
+function renoise.Song:select_previous_track() end
+
+---Set the selected track to next relative to the current track. Takes
+---care of skipping over hidden tracks and wrapping around at the edges.
+function renoise.Song:select_next_track() end
+
+---Insert a new group track at the given index. Group tracks can only be
+---inserted before the Master track.
+---@param index integer
+---@return renoise.GroupTrack
+function renoise.Song:insert_group_at(index) end
+
+---Add track at track_index to group at group_index by first moving it to the
+---right spot to the left of the group track, and then adding it. If group_index
+---is not a group track, a new group track will be created and both tracks
+---will be added to it.
+---@param track_index integer
+---@param group_index integer
+function renoise.Song:add_track_to_group(track_index, group_index) end
+
+---Removes track from its immediate parent group and places it outside it to
+---the left. Can only be called for tracks that are actually part of a group.
+---@param track_index integer
+function renoise.Song:remove_track_from_group(track_index) end
+
+---Delete the group with the given index and all its member tracks.
+---Index must be that of a group or a track that is a member of a group.
+---@param group_index integer
+function renoise.Song:delete_group_at(group_index) end
+
+---Insert a new instrument at the given index. This will remap all existing
+---notes in all patterns, if needed, and also update all other instrument links
+---in the song. Can't have more than MAX_NUMBER_OF_INSTRUMENTS in a song.
+---@param index integer
+---@return renoise.Instrument
+function renoise.Song:insert_instrument_at(index) end
+
+---Delete an existing instrument at the given index. Renoise needs at least one
+---instrument, thus trying to completely remove all instruments is not allowed.
+---This will remap all existing notes in all patterns and update all other
+---instrument links in the song.
+---@param index integer
+function renoise.Song:delete_instrument_at(index) end
+
+---Swap the position of two instruments. Will remap all existing notes in all
+---patterns and update all other instrument links in the song.
+---@param index1 integer
+---@param index2 integer
+function renoise.Song:swap_instruments_at(index1, index2) end
+
+---Access to a single instrument by index. Use properties 'instruments' to iterate
+---over all instruments and to query the instrument count.
+---@param index integer
+---@return renoise.Instrument
+function renoise.Song:instrument(index) end
+
+---Captures the current instrument (selects the instrument) from the current
+---note column at the current cursor pos. Changes the selected instrument
+---accordingly, but does not return the result. When no instrument is present at
+---the current cursor pos, nothing will be done.
+function renoise.Song:capture_instrument_from_pattern() end
+
+---Tries to captures the nearest instrument from the current pattern track,
+---starting to look at the cursor pos, then advancing until an instrument is
+---found. Changes the selected instrument accordingly, but does not return
+---the result. When no instruments (notes) are present in the current pattern
+---track, nothing will be done.
+function renoise.Song:capture_nearest_instrument_from_pattern() end
+
+---Access to a single pattern by index. Use properties 'patterns' to iterate
+---over all patterns and to query the pattern count.
+---@param index integer
+---@return renoise.Pattern
+function renoise.Song:pattern(index) end
+
+---@class RenderOptions
+---by default the song start.
+---@field start_pos renoise.SongPos?
+---by default the song end.
+---@field end_pos renoise.SongPos?
+---by default the players current rate.
+---@field sample_rate (22050|44100|48000|88200|96000|192000)?
+---by default 32.
+---@field bit_depth (16|24|32)?
+---by default "default".
+---@field interpolation ("default"|"precise")?
+---by default "high".
+---@field priority ("low"|"realtime"|"high")?
+
+---Start rendering a section of the song or the whole song to a WAV file.
+---
+---Rendering job will be done in the background and the call will return
+---back immediately, but the Renoise GUI will be blocked during rendering. The
+---passed `rendering_done_callback` function is called as soon as rendering is
+---done, e.g. successfully completed.
+---
+---While rendering, the rendering status can be polled with the `song().rendering`
+---and `song().rendering_progress` properties, for example, in idle notifier
+---loops. If starting the rendering process fails (because of file IO errors for
+---example), the render function will return false and the error message is set
+---as the second return value. On success, only a single `true` value is
+---returned.
+---
+---To render only specific tracks or columns, mute the undesired tracks/columns
+---before starting to render.
+---
+---Parameter `file_name` must point to a valid, maybe already existing file. If it
+---already exists, the file will be silently overwritten. The renderer will
+---automatically add a ".wav" extension to the file_name, if missing.
+---
+---Parameter `rendering_done_callback` is ONLY called when rendering has succeeded.
+---You can do something with the file you've passed to the renderer here, like
+---for example loading the file into a sample buffer.
+---@param options RenderOptions
+---@param filename string
+---@param rendering_done_callback fun()
+---@return boolean success, string error?
+---@overload fun(self, filename: string, rendering_done_callback: fun()): boolean, string?
+function renoise.Song:render(options, filename, rendering_done_callback) end
+
+---When rendering (see rendering, renoise.song().rendering_progress),
+---the current render process is canceled. Otherwise, nothing is done.
+function renoise.Song:cancel_rendering() end
+
+---Trigger the given pattern line index in the current pattern for preview purposes.
+---This works similar to the Renoise `PlayCurrentLine` keyboard shortcut, but does now
+---advance the playback position.
+---
+---If you want to preview a single track's note only, mute other tracks before
+---triggering the pattern line. To stop the preview, invoke `stop` from the transport.
+---
+---Transport playback must be stopped for this to work. If it's not, an error is
+---thrown.
+---
+---This is evaluated from the GUI thread, not a real-time thread, so timing will
+---be a little bit wonky. Don't try to use this as a custom sequencer!
+---
+---@param line_index integer line index in current pattern.
+function renoise.Song:trigger_pattern_line(line_index) end
+
+---Trigger instrument playback with the specified note or a table of notes (a chord)
+---and volume for preview purposes on the given track index.
+---
+---Send tracks can not play notes. When specifying a send track, notes will play on
+---the master track instead.
+---
+---This is evaluated from the GUI thread, not a real-time thread, so timing will
+---be a little bit wonky. Only use this to **preview instruments** from tools and
+---not as a sequencer.
+---
+---@param instrument_index integer The instrument to trigger.
+---@param track_index integer The track to play the instrument on.
+---@param note (integer|(integer[]))? A single note or a table of notes in Range: (0 - 119). Default: 48.
+---@param volume number? Volume in Range: (0 - 1). Default: 1.0.
+function renoise.Song:trigger_instrument_note_on(instrument_index, track_index, note, volume) end
+
+---Stop instrument playback which previously got started via `trigger_instrument_note_on`.
+---@param instrument_index integer The instrument to trigger.
+---@param track_index integer The track to play the instrument on.
+---@param note (integer|(integer[]))? A single note or a table of notes in Range: (0 - 119). Default: 48.
+function renoise.Song:trigger_instrument_note_off(instrument_index, track_index, note) end
+
+---Trigger a sample with the specified note and volume for preview purposes on the
+---given track. This directly triggers the sample, bypassing the instrument's keyzone.
+---
+---Only use this to **preview samples** from tools and not as a sequencer.
+---See also `trigger_instrument_note_on`.
+---
+---@param instrument_index integer The instrument to trigger.
+---@param sample_index integer The sample to trigger.
+---@param track_index integer The track to play the instrument on.
+---@param note integer? A single note in Range: (0 - 119). Default: 48.
+---@param volume number? Volume in Range: (0 - 1). Default 1.0
+---@param use_selection boolean? Default: false. When true and a selection is set, play the selection instead of the whole sample. Also disables looping.
+function renoise.Song:trigger_sample_note_on(instrument_index, sample_index, track_index, note, volume, use_selection) end
+
+---Stops sample playback that previously got triggered via `trigger_sample_note_on`.
+---@param instrument_index integer The instrument to trigger.
+---@param sample_index integer The sample to trigger.
+---@param track_index integer The track to play the instrument on.
+---@param note integer? A single note in Range: (0 - 119). Default: 48.
+function renoise.Song:trigger_sample_note_off(instrument_index, sample_index, track_index, note) end
+
+---Load all global MIDI mappings in the song into a XRNM file.
+---Returns true when loading/saving succeeded, else false and the error message.
+---@param filename string
+---@return boolean success, string error?
+function renoise.Song:load_midi_mappings(filename) end
+
+---Save all global MIDI mappings in the song into a XRNM file.
+---Returns true when loading/saving succeeded, else false and the error message.
+---@param filename string
+---@return boolean success, string error?
+function renoise.Song:save_midi_mappings(filename) end
+
+---clear all MIDI mappings in the song
+function renoise.Song:clear_midi_mappings() end

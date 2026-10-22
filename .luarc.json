@@ -1,0 +1,10 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime.version": "LuaJIT",
+  "runtime.builtin": { "ffi": "disable" },
+  "runtime.plugin": "definitions/plugin.lua",
+  "workspace.library": ["definitions/library"],
+  "workspace.ignoreDir": ["definitions", "docs", "dist", ".git", ".lls-log"],
+  "workspace.checkThirdParty": false,
+  "diagnostics.globals": ["_AUTO_RELOAD_DEBUG", "APP"]
+}

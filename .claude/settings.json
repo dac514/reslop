@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(just *)",
+      "Bash(python3 scripts/renoise.py *)",
+      "Bash(python scripts/renoise.py *)",
+      "Bash(stylua *)",
+      "Bash(lua-language-server *)"
+    ]
+  }
+}
