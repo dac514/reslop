@@ -9,6 +9,7 @@
   * No side effects at module level; do them in `App.start()`.
   * Wrap callbacks that Renoise invokes with `App.guard` so errors reach the
     dev log.
+  * Inside song list notifiers, read dependents through `App.defer`.
 ]]
 
 local App = {}
@@ -113,9 +114,10 @@ end
 ---@param observable renoise.Document.Observable
 ---@param fn function
 function reg.notifier(observable, fn)
-  if not observable:has_notifier(fn) then
-    observable:add_notifier(fn)
+  if observable:has_notifier(fn) then
+    return -- already registered and tracked; safe to call again on refresh
   end
+  observable:add_notifier(fn)
   table.insert(reg.notifiers, { observable = observable, fn = fn })
 end
 
@@ -128,6 +130,40 @@ function reg.timer(fn, interval_ms)
   end
   tool:add_timer(fn, interval_ms)
   table.insert(reg.timers, fn)
+end
+
+-- Deferral -------------------------------------------------------------------
+
+---@type fun()[]
+local deferred = {}
+
+local function run_deferred()
+  renoise.tool().app_idle_observable:remove_notifier(run_deferred)
+  local queue = deferred
+  deferred = {}
+  for _, fn in ipairs(queue) do
+    pcall(App.guard(fn)) -- guard logs the error, pcall keeps the queue going
+  end
+end
+
+---Queue `fn` (once) for the next idle tick, after Renoise has finished the
+---current operation. Song list notifiers (`tracks_observable`,
+---`instruments_observable`, `sequencer.pattern_sequence_observable`,
+---`phrase_mappings_observable`) fire *during* the edit: inside them the list is
+---updated but patterns, sequence and selection are not, and the song must not
+---be modified. Observe the dependent object when it has an observable;
+---otherwise defer the work with this.
+---https://forum.renoise.com/t/79511  https://forum.renoise.com/t/33796/11
+---@param fn fun()
+function App.defer(fn)
+  if table.find(deferred, fn) then
+    return
+  end
+  table.insert(deferred, fn)
+  local idle = renoise.tool().app_idle_observable
+  if not idle:has_notifier(run_deferred) then
+    idle:add_notifier(run_deferred)
+  end
 end
 
 -- Dialogs --------------------------------------------------------------------
@@ -203,6 +239,10 @@ function App.stop()
     if tool:has_timer(fn) then
       tool:remove_timer(fn)
     end
+  end
+  deferred = {}
+  if tool.app_idle_observable:has_notifier(run_deferred) then
+    tool.app_idle_observable:remove_notifier(run_deferred)
   end
   reg.menus, reg.keys, reg.notifiers, reg.timers = {}, {}, {}, {}
   App.log "stopped"
