@@ -114,9 +114,10 @@ end
 ---@param observable renoise.Document.Observable
 ---@param fn function
 function reg.notifier(observable, fn)
-  if not observable:has_notifier(fn) then
-    observable:add_notifier(fn)
+  if observable:has_notifier(fn) then
+    return -- already registered and tracked; safe to call again on refresh
   end
+  observable:add_notifier(fn)
   table.insert(reg.notifiers, { observable = observable, fn = fn })
 end
 

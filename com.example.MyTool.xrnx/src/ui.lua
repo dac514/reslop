@@ -29,7 +29,12 @@ function M.build(app)
     end
     local n = #song.tracks
     local last = song:pattern(1):track(n) -- errors inside tracks_observable without App.defer
-    return ("Tracks: %d (last %s in pattern 1)"):format(n, last.is_empty and "empty" or "in use")
+    return ("Tracks: %d · Sends: %d · %s in pattern 1: %s"):format(
+      song.sequencer_track_count,
+      song.send_track_count,
+      song.tracks[n].name,
+      last.is_empty and "empty" or "in use"
+    )
   end
 
   local root = vb:column {
@@ -59,13 +64,19 @@ function M.build(app)
       bpm_view.text = bpm_text()
     end)
     local tracks_view = vb.views.tracks --[[@as renoise.Views.Text]]
+    ---@type fun()
+    local on_change
     local function refresh_tracks()
       tracks_view.text = tracks_text()
+      -- The last pattern track may be new: watch its emptiness so edits show live.
+      app.reg.notifier(song:pattern(1):track(#song.tracks).is_empty_observable, on_change)
     end
     -- Fires mid-insert, before patterns have the new track: run after the edit.
-    app.reg.notifier(song.tracks_observable, function()
+    function on_change()
       app.defer(refresh_tracks)
-    end)
+    end
+    app.reg.notifier(song.tracks_observable, on_change)
+    refresh_tracks()
   end
 
   return vb, root
