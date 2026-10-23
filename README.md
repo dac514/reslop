@@ -17,6 +17,10 @@ Questions or ideas? There is a
 <!-- template:start -->
 ## Your first tool in five minutes
 
+Prefer to watch? The video walks through everything below, start to finish.
+
+[![Watch the demo on YouTube](https://img.youtube.com/vi/DR_vuVzrXCU/maxresdefault.jpg)](https://www.youtube.com/watch?v=DR_vuVzrXCU)
+
 You need three things: Renoise 3.5 (the demo works), Claude Code, and a GitHub
 account. No Lua experience required. No terminal experience required either,
 though it never hurts.
