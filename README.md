@@ -11,6 +11,9 @@ look at your dialogs and reload your tool without you lifting a finger.
 
 Yes, the name is a joke. The tools you make with it don't have to be.
 
+Questions or ideas? There is a
+[thread on the Renoise forum](https://forum.renoise.com/t/reslop-a-template-to-build-claude-code-tools/79678).
+
 <!-- template:start -->
 ## Your first tool in five minutes
 
