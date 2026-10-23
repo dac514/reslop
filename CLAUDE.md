@@ -105,7 +105,7 @@ docs/renoise/                 vendored xrnx guide pages (start/, guide/)
 .github/workflows/release.yml tag v* -> GitHub release with the .xrnx attached
 <Id>.xrnx/manifest.xml        Id (== folder name), ApiVersion 6.2, Version like 1.02 (no semver)
 <Id>.xrnx/main.lua            thin entry: package.path, preferences, APP = require "src.app", APP.start(), dev bridge
-<Id>.xrnx/src/app.lua         App.start/stop, App.reg (menu/key/notifier/timer), App.register_dialog, App.guard
+<Id>.xrnx/src/app.lua         App.start/stop, App.reg (menu/key/notifier/timer), App.register_dialog, App.guard, App.defer
 <Id>.xrnx/src/ui.lua          ViewBuilder dialog; returns (vb, root)
 <Id>.xrnx/dev/                dev bridge (bridge.lua, commands.lua, serialize.lua); never shipped
 ```
@@ -130,6 +130,11 @@ docs/renoise/                 vendored xrnx guide pages (start/, guide/)
   (see `docs/renoise/guide/`) or `renoise.tool():add_timer`.
 - `renoise.song()` can be nil (no song) and changes on load/new; never cache it
   across documents. `App.close_dialogs` runs on `app_new_document_observable`.
+- Song list notifiers (`tracks_observable`, `instruments_observable`,
+  `sequencer.pattern_sequence_observable`, `phrase_mappings_observable`) fire *during* the edit:
+  the list is updated, dependents (pattern tracks, sequence, selection) are not, and they also
+  fire on undo/redo. Inside them never edit the song; observe the dependent object if it has an
+  observable, else `App.defer(fn)`. Demo: the tracks row in `src/ui.lua`.
 - ViewBuilder constructor tables accept only documented fields; a typo such as
   `vb:text { margin = 1 }` crashes at runtime and LuaLS cannot catch it.
 - Manifest: `Id` must equal the folder name without `.xrnx`; `Version` is a

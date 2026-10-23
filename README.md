@@ -53,9 +53,9 @@ CLAUDE.md             the briefing Claude reads before touching anything
 ```
 
 The example tool adds *Tools → My Tool...* to Renoise's menu. Its dialog shows
-the song name, a live BPM read-out, a text field that remembers what you type,
-and a button. It is small on purpose: it shows the patterns, then gets out of
-the way.
+the song name, a live BPM read-out, a track count that follows the song, a text
+field that remembers what you type, and a button. It is small on purpose: it
+shows the patterns, then gets out of the way.
 
 ## Doing it by hand
 
