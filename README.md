@@ -5,9 +5,9 @@ Build Renoise tools with a coding assistant doing the typing.
 Renoise tools are small Lua scripts (`.xrnx` files) that add menus, dialogs and
 new tricks to [Renoise](https://www.renoise.com). ReSlop is a starter kit for
 making them. You get a little tool that already works, the complete Renoise API
-reference in a form your editor and [Claude Code](https://claude.com/claude-code)
-can read, and a bridge that lets Claude run code inside your running Renoise,
-look at your dialogs and reload your tool without you lifting a finger.
+reference in a form your editor and coding assistants can read, and a bridge
+that lets an assistant run code inside your running Renoise, inspect your
+dialogs and reload your tool without you lifting a finger.
 
 Yes, the name is a joke. The tools you make with it don't have to be.
 
@@ -21,9 +21,10 @@ Prefer to watch? The video walks through everything below, start to finish.
 
 [![Watch the demo on YouTube](https://img.youtube.com/vi/DR_vuVzrXCU/maxresdefault.jpg)](https://www.youtube.com/watch?v=DR_vuVzrXCU)
 
-You need three things: Renoise 3.5 (the demo works), Claude Code, and a GitHub
-account. No Lua experience required. No terminal experience required either,
-though it never hurts.
+You need three things: Renoise 3.5 (the demo works), a coding assistant
+([Claude Code](https://claude.com/claude-code), Copilot CLI, or GitHub Copilot
+in your IDE), and a GitHub account. No Lua experience required. No terminal
+experience required either, though it never hurts.
 
 1. **Click "Use this template"** at the top of this page and give your
    repository a name. Then get it onto your computer (GitHub Desktop is fine,
@@ -31,17 +32,19 @@ though it never hurts.
 2. **Let Renoise listen.** In Renoise, open *Edit → Preferences → OSC* and tick
    *Enable Server*. Keep the defaults (UDP, port 8000). This is how the kit
    installs and reloads your tool without anyone clicking through menus.
-3. **Open the folder in Claude Code and ask for a setup.** Something like:
+3. **Open the folder in Claude Code, Copilot CLI, or GitHub Copilot and ask
+   for a setup.** Something like:
 
    > Set this project up for me. Install anything that's missing, name the tool
    > com.yourname.ToolName, and check that you can talk to my Renoise.
 
-   Claude installs the formatter, the type checker and the task runner, renames
-   the example tool, puts it into Renoise, and reports back when it can see your
-   song. If it needs a password for an install, it will ask.
+   Your assistant installs the formatter, the type checker and the task runner,
+   renames the example tool, puts it into Renoise, and reports back when it can
+   see your song. If it needs a password for an install, it will ask.
 4. **Ask for a feature.** "Add a button that doubles the BPM." "Make a dialog
-   that lists every instrument." Claude writes the Lua, checks it against the
-   Renoise API, reloads the tool inside Renoise, and shows you the dialog it made.
+   that lists every instrument." Your assistant writes the Lua, checks it
+   against the Renoise API, reloads the tool inside Renoise, and shows you the
+   dialog it made.
 
 That is the whole workflow. The rest of this page is for the curious and the
 hands-on.
@@ -53,9 +56,11 @@ hands-on.
 <Id>.xrnx/            your tool: manifest.xml, main.lua, src/ (logic and dialog), dev/ (the bridge)
 scripts/renoise.py    one small Python script that does all the chores below
 justfile              short names for the chores, so you can type `just reload`
-definitions/          the Renoise API, annotated, for the type checker and for Claude
+definitions/          the Renoise API, annotated, for the type checker and coding assistants
 docs/renoise/         the Renoise scripting guide, offline
-CLAUDE.md             the briefing Claude reads before touching anything
+CLAUDE.md             the canonical briefing for Claude Code
+.github/copilot-instructions.md
+                      the briefing for GitHub Copilot and Copilot CLI
 .github/workflows/    checks on every push; a release with the .xrnx on every tag
 ```
 
@@ -106,13 +111,13 @@ just screenshot     # PNG of the Renoise window and any open dialog, into dist/
 just package        # dist/<Id>.xrnx, ready to share (the dev bridge is left out)
 ```
 
-## How Claude sees Renoise
+## How your assistant sees Renoise
 
 Renoise has no command line, and `print` only reaches its Scripting Terminal.
 So the kit ships a small **dev bridge** inside the tool (`dev/bridge.lua`): a
 TCP server on `127.0.0.1:18765`, living in the tool's own Lua state, loaded
-only while `dev/` exists and never included by `just package`. The script talks
-to it:
+only while `dev/` exists and never included by `just package`. The
+`scripts/renoise.py` CLI talks to the bridge:
 
 - `eval` runs Lua with full access to the tool (`APP`, `renoise`, `io`), captures
   `print` output and returns values as text.
