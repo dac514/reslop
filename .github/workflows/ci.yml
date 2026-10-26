@@ -39,6 +39,12 @@ jobs:
       - name: Type check
         run: lua-language-server --check . --checklevel=Warning --logpath .lls-log --check_format=pretty
 
+      - name: Install LuaJIT
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq luajit
+
+      - name: Unit tests
+        run: python3 scripts/renoise.py test
+
       - name: Package
         run: python3 scripts/renoise.py package
 

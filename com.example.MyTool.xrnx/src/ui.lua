@@ -3,6 +3,8 @@
   the dev bridge can map ids to views) and the root view.
 ]]
 
+local labels = require "src.labels"
+
 local M = {}
 
 ---@param app table The application module (`src/app.lua`).
@@ -13,28 +15,25 @@ function M.build(app)
   local song = renoise.song()
 
   local function song_text()
-    if not song then
-      return "Song: (none)"
-    end
-    return "Song: " .. (song.name ~= "" and song.name or "(untitled)")
+    return labels.song(song and song.name)
   end
 
   local function bpm_text()
-    return song and ("BPM: %d"):format(song.transport.bpm) or "BPM: -"
+    return labels.bpm(song and song.transport.bpm)
   end
 
   local function tracks_text()
     if not song then
-      return "Tracks: -"
+      return labels.tracks(nil)
     end
     local n = #song.tracks
     local last = song:pattern(1):track(n) -- errors inside tracks_observable without App.defer
-    return ("Tracks: %d · Sends: %d · %s in pattern 1: %s"):format(
-      song.sequencer_track_count,
-      song.send_track_count,
-      song.tracks[n].name,
-      last.is_empty and "empty" or "in use"
-    )
+    return labels.tracks {
+      sequencer = song.sequencer_track_count,
+      sends = song.send_track_count,
+      last_name = song.tracks[n].name,
+      last_empty = last.is_empty,
+    }
   end
 
   local root = vb:column {

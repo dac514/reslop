@@ -27,6 +27,7 @@ first line; exit codes: 0 ok, 1 remote/Lua error, 2 usage, 3 cannot connect,
 |---|---|
 | `just doctor` | check stylua, lua-language-server, just, Renoise folders, the bridge |
 | `just check` | `stylua --check .` + `lua-language-server --check .` (+ Renoise's own parser via the bridge when reachable) |
+| `just test` | run `tests/*_test.lua` under plain LuaJIT with the bundle on `package.path`; no Renoise needed. `just test tests/x_test.lua` runs one file, `-- ARGS` go to the test |
 | `just fmt` | format all Lua in place |
 | `just install` | install into Renoise through OSC `install_tool` (Renoise copies and loads the bundle); falls back to a symlink/copy that needs *Tools > Reload All Tools* once |
 | `just reload` | **full reload** (default): zip the bundle (with `dev/`) and `install_tool` it through OSC; fresh Lua state, new `boot_id`, about a second |
@@ -44,7 +45,7 @@ first line; exit codes: 0 ok, 1 remote/Lua error, 2 usage, 3 cannot connect,
 ### The development loop
 
 1. Edit `src/*.lua` (behaviour and UI), `main.lua` (entry), `manifest.xml`, or `dev/*` (bridge).
-2. `just check`. Fix everything it reports before reloading.
+2. `just check`, and `just test` when a pure module or a test changed. Fix everything they report before reloading.
 3. `just reload` (full, any file). `just reload-soft` is faster for `src/`-only edits but keeps old
    closures registered outside `App.reg` and does not touch `main.lua`, `manifest.xml` or `dev/`.
 4. Verify inside the running Renoise: `just eval 'APP.show_dialog()'`, `just views`,
@@ -73,19 +74,20 @@ When asked to set the project up, do all of this, in order, and report at the en
    macOS and Linux ship it; on Windows `winget install Python.Python.3.13`, or use WSL.
 2. Install what is missing. Prefer user-local installs and ask before anything that
    needs `sudo` or an admin shell. Pinned, known-good versions: StyLua 2.6.0,
-   lua-language-server 3.19.2 (must be >= 3.13.6), just 1.59.0.
-   - macOS: `brew install just stylua lua-language-server` (offer to install Homebrew if absent).
+   lua-language-server 3.19.2 (must be >= 3.13.6), just 1.59.0. LuaJIT 2.1 (any build)
+   runs the unit tests; `lua5.1` is accepted as a fallback.
+   - macOS: `brew install just stylua lua-language-server luajit` (offer to install Homebrew if absent).
    - Windows: `winget install Casey.Just JohnnyMorganz.StyLua LuaLS.lua-language-server`
-     (or `scoop install just stylua lua-language-server`).
-   - Linux / WSL: `just` from the distro (`sudo dnf install just`, `sudo apt install just`)
-     or the release archive; StyLua and lua-language-server from their GitHub release
+     (or `scoop install just stylua lua-language-server`), plus `scoop install luajit`.
+   - Linux / WSL: `just` and `luajit` from the distro (`sudo dnf install just luajit`,
+     `sudo apt install just luajit`) or the release archive; StyLua and lua-language-server from their GitHub release
      archives into `~/.local/bin` (for LuaLS unpack the tarball under
      `~/.local/share/lua-language-server` and symlink `bin/lua-language-server`).
      Make sure `~/.local/bin` is on `PATH`.
 3. Rename the placeholder if the user gave a name:
    `just init com.theirname.ToolName "Tool Name" "Their Name [email]"`. The id must be
    reverse-domain style (`com.yourname.ToolName`); ask if you only have a tool name.
-4. `just check` must pass. Then `just install` (needs Renoise running with its OSC
+4. `just check` and `just test` must pass. Then `just install` (needs Renoise running with its OSC
    server enabled: *Edit > Preferences > OSC > Enable Server*, UDP, port 8000). If the
    bridge does not answer, say exactly which of those is missing instead of guessing.
 5. `just ping` and `just song`, then tell the user what you can see (song name, BPM).
@@ -96,17 +98,19 @@ When asked to set the project up, do all of this, in order, and report at the en
 CLAUDE.md, README.md          this file; human quick start
 justfile                      task runner (python3 on POSIX/WSL, python on Windows)
 scripts/renoise.py            CLI: doctor, paths, install, uninstall, sync, ping, eval, reload,
-                              views, log, song, check, screenshot, package, init, update-defs
+                              views, log, song, check, test, screenshot, package, init, update-defs
 .luarc.json                   LuaLS: LuaJIT runtime, definitions as library, class plugin
 stylua.toml                   2-space, 100 cols, double quotes, call_parentheses = None
 definitions/                  vendored renoise/definitions (LuaCATS); UPSTREAM.md records the commit
 docs/renoise/                 vendored xrnx guide pages (start/, guide/)
-.github/workflows/ci.yml      stylua --check, lua-language-server --check, package
+.github/workflows/ci.yml      stylua --check, lua-language-server --check, unit tests, package
 .github/workflows/release.yml tag v* -> GitHub release with the .xrnx attached
 <Id>.xrnx/manifest.xml        Id (== folder name), ApiVersion 6.2, Version like 1.02 (no semver)
 <Id>.xrnx/main.lua            thin entry: package.path, preferences, APP = require "src.app", APP.start(), dev bridge
 <Id>.xrnx/src/app.lua         App.start/stop, App.reg (menu/key/notifier/timer), App.register_dialog, App.guard, App.defer
 <Id>.xrnx/src/ui.lua          ViewBuilder dialog; returns (vb, root)
+<Id>.xrnx/src/labels.lua      pure Lua (no renoise.*): the dialog's label strings; the unit-tested example
+tests/helper.lua              check/eq/fails/done for test files; tests/*_test.lua run under LuaJIT via `just test`
 <Id>.xrnx/dev/                dev bridge (bridge.lua, commands.lua, serialize.lua); never shipped
 ```
 
@@ -115,7 +119,13 @@ docs/renoise/                 vendored xrnx guide pages (start/, guide/)
 - Never hand-edit `definitions/` or `docs/renoise/`; run `just update-defs`
   (it re-applies any local patches, which are listed in `definitions/UPSTREAM.md`).
 - `dev/` is development only: `src/` must never `require` anything from `dev.*`,
-  and `package` strips it. The bridge binds `127.0.0.1`; a non-loopback bind
+  and `package` strips it. `tests/` lives outside the bundle and is never shipped.
+- Logic worth unit-testing goes in a pure module (like `src/labels.lua`): no `renoise.*`
+  and no Renoise additions to the Lua stdlib (`table.find`, `oprint`, ...), because
+  `just test` runs under plain LuaJIT where those do not exist. `src/app.lua` and
+  `src/ui.lua` are not testable that way; keep them thin and push logic into pure modules.
+  A test is `tests/<name>_test.lua`: `local t = require "tests.helper"`, then `t.eq`,
+  `t.check`, `t.fails`, and `t.done()` last (it exits non-zero on failure). The bridge binds `127.0.0.1`; a non-loopback bind
   (`dev/bind`) requires the token in `dev/.token` (both written by `install` on WSL).
 - `main.lua` stays thin and idempotent. Behaviour lives in `src/` behind
   `APP.start()` / `APP.stop()`. No module-level side effects.
@@ -193,4 +203,4 @@ docs/renoise/                 vendored xrnx guide pages (start/, guide/)
 ## Git
 
 - Tags `vX.YY` must match `manifest.xml` `<Version>`; pushing one publishes a GitHub release.
-- CI must be green: StyLua, LuaLS and `package`.
+- CI must be green: StyLua, LuaLS, `test` and `package`.

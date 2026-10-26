@@ -56,6 +56,7 @@ hands-on.
 <Id>.xrnx/            your tool: manifest.xml, main.lua, src/ (logic and dialog), dev/ (the bridge)
 scripts/renoise.py    one small Python script that does all the chores below
 justfile              short names for the chores, so you can type `just reload`
+tests/                unit tests that run without Renoise (`just test`)
 definitions/          the Renoise API, annotated, for the type checker and coding assistants
 docs/renoise/         the Renoise scripting guide, offline
 CLAUDE.md             the canonical briefing for Claude Code
@@ -68,23 +69,26 @@ CLAUDE.md             the canonical briefing for Claude Code
 The example tool adds *Tools → My Tool...* to Renoise's menu. Its dialog shows
 the song name, a live BPM read-out, a track count that follows the song, a text
 field that remembers what you type, and a button. It is small on purpose: it
-shows the patterns, then gets out of the way.
+shows the patterns, then gets out of the way. The label text lives in a plain
+Lua module with a unit test next to it, so you can see how to test logic
+without a running Renoise.
 
 ## Doing it by hand
 
 If you would rather type the commands yourself, this is what the setup prompt
 does for you.
 
-Install four things: [just](https://github.com/casey/just) (runs the chores),
+Install five things: [just](https://github.com/casey/just) (runs the chores),
 [StyLua](https://github.com/JohnnyMorganz/StyLua) (formats Lua),
 [lua-language-server](https://github.com/LuaLS/lua-language-server) 3.13.6 or
-newer (checks Lua against the Renoise API), and Python 3.8 or newer (runs the
-script; no packages needed).
+newer (checks Lua against the Renoise API), [LuaJIT](https://luajit.org)
+(runs the unit tests), and Python 3.8 or newer (runs the script; no packages
+needed).
 
-- macOS: `brew install just stylua lua-language-server`
+- macOS: `brew install just stylua lua-language-server luajit`
 - Windows: `winget install Casey.Just JohnnyMorganz.StyLua LuaLS.lua-language-server Python.Python.3.13`
-  (or work inside WSL and follow the Linux line)
-- Fedora, Ubuntu, WSL: `just` from your package manager, StyLua and
+  and `scoop install luajit` (or work inside WSL and follow the Linux line)
+- Fedora, Ubuntu, WSL: `just` and `luajit` from your package manager, StyLua and
   lua-language-server from their GitHub release archives, unpacked into `~/.local/bin`
 
 Then:
@@ -103,6 +107,7 @@ No `just` yet? Every recipe is a one-liner around the script, so
 
 ```
 just check          # formatting + type check against the Renoise API
+just test           # unit tests under plain LuaJIT, no Renoise needed
 just reload         # full reload: zip the tool and have Renoise reinstall it (about a second)
 just reload-soft    # quicker: swap in src/ without restarting the tool
 just eval 'return renoise.song().transport.bpm'

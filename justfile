@@ -30,6 +30,10 @@ typecheck:
 check: fmt-check typecheck
     -{{rn}} check
 
+# Unit tests: tests/*_test.lua under LuaJIT, no Renoise needed. just test [FILE ...] [-- ARGS]
+test *ARGS:
+    {{rn}} test {{ARGS}}
+
 # Link (Linux/macOS) or copy (Windows/WSL) the tool into Renoise's Tools folder
 install *ARGS:
     {{rn}} install {{ARGS}}
