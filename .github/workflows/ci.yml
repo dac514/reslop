@@ -48,7 +48,7 @@ jobs:
       - name: Package
         run: python3 scripts/renoise.py package
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: xrnx
           path: dist/*.xrnx
