@@ -2,7 +2,8 @@
 """Dev helper for Renoise tool projects. Python 3.8+, standard library only.
 
 Talks to the dev bridge (dev/bridge.lua) inside the running Renoise, installs
-the tool into Renoise's Tools folder, packages it, and more. Run with -h.
+the tool into Renoise's Tools folder, packages it, runs the LuaJIT unit tests
+in tests/, and more. Run with -h.
 
 Output contract: the first line is `ok ...` or `error <reason>`; everything
 after it is payload. Pass --json for a single JSON object instead.
@@ -588,6 +589,66 @@ def cmd_check(args):
 
 
 # --------------------------------------------------------------------------
+# Commands: test
+
+TESTS_DIR = ROOT / "tests"
+TEST_GLOB = "*_test.lua"
+LUA_INTERPRETERS = ("luajit", "lua5.1", "lua51")
+
+
+def find_lua():
+    """Name of the first Lua 5.1 interpreter on PATH (LuaJIT preferred), or None."""
+    for name in LUA_INTERPRETERS:
+        if which(name):
+            return name
+    return None
+
+
+def cmd_test(args):
+    """Run tests/*_test.lua under LuaJIT with the bundle on package.path (no Renoise needed)."""
+    bundle = find_bundle(args.bundle)
+    lua = find_lua()
+    if not lua:
+        raise Fail("no Lua interpreter found (tried %s): %s" % (", ".join(LUA_INTERPRETERS), INSTALL_HINTS["luajit"][PLATFORM]), EXIT_USAGE)
+    rest = list(args.rest)
+    extra = []
+    if "--" in rest:
+        i = rest.index("--")
+        rest, extra = rest[:i], rest[i + 1 :]
+    if rest:
+        files = [Path(f).resolve() for f in rest]
+        missing = [str(f) for f in files if not f.is_file()]
+        if missing:
+            raise Fail("no such test file: %s" % ", ".join(missing), EXIT_USAGE)
+    else:
+        files = sorted(TESTS_DIR.glob(TEST_GLOB)) if TESTS_DIR.is_dir() else []
+        if not files:
+            raise Fail("no tests found: add tests/%s (see tests/helper.lua)" % TEST_GLOB, EXIT_USAGE)
+    # `require "src.x"` resolves against the bundle like inside Renoise; `require "tests.helper"` against the repo root.
+    env = dict(os.environ)
+    env["LUA_PATH"] = ";".join([str(bundle / "?.lua"), str(bundle / "?" / "init.lua"), str(ROOT / "?.lua"), ""]) + ";"
+    env["XRNX_BUNDLE"] = str(bundle)
+    results = []
+    for f in files:
+        rel = f.relative_to(ROOT).as_posix() if ROOT in f.parents else str(f)
+        r = subprocess.run([lua, str(f)] + extra, cwd=str(ROOT), env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        output = r.stdout.rstrip()
+        results.append({"file": rel, "ok": r.returncode == 0, "exit": r.returncode, "output": output})
+        if not args.json:
+            print("%s %s" % ("PASS" if r.returncode == 0 else "FAIL", rel))
+            if output:
+                print("\n".join("  " + line for line in output.splitlines()))
+    failed = [x for x in results if not x["ok"]]
+    if args.json:
+        print(json.dumps({"status": "ok" if not failed else "error", "lua": lua, "files": results}))
+    elif failed:
+        print("error %d of %d test file(s) failed (%s)" % (len(failed), len(results), lua))
+    else:
+        print("ok %d test file(s) passed (%s)" % (len(results), lua))
+    return EXIT_OK if not failed else EXIT_REMOTE
+
+
+# --------------------------------------------------------------------------
 # Commands: install / sync / package
 
 
@@ -1032,6 +1093,12 @@ INSTALL_HINTS = {
         "macos": "brew install just",
         "windows": "winget install Casey.Just   # or scoop install just",
     },
+    "luajit": {
+        "linux": "sudo dnf install luajit   # or sudo apt install luajit",
+        "wsl": "sudo dnf install luajit   # or sudo apt install luajit",
+        "macos": "brew install luajit",
+        "windows": "scoop install luajit   # or download https://luajit.org/download.html",
+    },
 }
 
 
@@ -1046,7 +1113,7 @@ def cmd_doctor(args):
     if sys.version_info < (3, 8):
         print("  !! python 3.8+ required")
         problems += 1
-    for tool, cmd in (("stylua", ["stylua", "--version"]), ("lua-language-server", ["lua-language-server", "--version"]), ("just", ["just", "--version"])):
+    for tool, cmd in (("stylua", ["stylua", "--version"]), ("lua-language-server", ["lua-language-server", "--version"]), ("just", ["just", "--version"]), ("luajit", ["luajit", "-v"])):
         v = tool_version(cmd)
         if v:
             print("%s: %s" % (tool, v))
@@ -1055,8 +1122,10 @@ def cmd_doctor(args):
                 if m and tuple(int(x) for x in m.groups()) < MIN_LUALS:
                     print("  !! need lua-language-server >= %s (older versions exit 0 even when --check finds problems)" % ".".join(map(str, MIN_LUALS)))
                     problems += 1
+        elif tool == "luajit" and find_lua():
+            print("luajit: MISSING, `test` will use %s (LuaJIT matches Renoise better)  -> %s" % (find_lua(), INSTALL_HINTS[tool][PLATFORM]))
         else:
-            print("%s: MISSING  -> %s" % (tool, INSTALL_HINTS[tool][PLATFORM]))
+            print("%s: MISSING  -> %s%s" % (tool, INSTALL_HINTS[tool][PLATFORM], "   (needed by `just test`)" if tool == "luajit" else ""))
             problems += 1
     if PLATFORM == "wsl":
         print("wsl interop (powershell.exe): %s" % ("ok" if which("powershell.exe") else "MISSING (needed for screenshots, focus and locating Renoise)"))
@@ -1130,6 +1199,9 @@ def build_parser():
     s.add_argument("--file", help="only this file (relative to the bundle)")
     s.set_defaults(fn=cmd_check)
 
+    s = sub.add_parser("test", help="run tests/*_test.lua under LuaJIT, no Renoise needed: [FILE ...] [-- ARGS passed to the test]")
+    s.add_argument("rest", nargs=argparse.REMAINDER, help="test files (default: all tests/*_test.lua); anything after -- goes to the test")
+    s.set_defaults(fn=cmd_test)
     s = sub.add_parser("screenshot", help="capture the screen/Renoise window to a PNG")
     s.add_argument("path", nargs="?")
     s.set_defaults(fn=cmd_screenshot)

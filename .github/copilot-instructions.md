@@ -12,7 +12,9 @@ workflow. Follow it unless these Copilot-specific notes are more precise.
 - Keep `dev/` development-only; production `src/` must not require `dev.*`.
 - Follow the registration, callback guarding, document lifecycle, and
   non-blocking rules in `CLAUDE.md`.
-- Run `just check` after Lua changes. For changes that affect a running
+- Run `just check` after Lua changes, and `just test` when a pure module or
+  a test changed. Logic worth testing goes in a pure module (no `renoise.*`)
+  with a `tests/<name>_test.lua` next to it. For changes that affect a running
   Renoise tool, follow the reload and runtime verification steps in
   `CLAUDE.md`; do not claim runtime or GUI behavior is verified without
   checking it through the bridge.
