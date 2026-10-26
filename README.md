@@ -62,6 +62,7 @@ CLAUDE.md             the canonical briefing for Claude Code
 .github/copilot-instructions.md
                       the briefing for GitHub Copilot and Copilot CLI
 .github/workflows/    checks on every push; a release with the .xrnx on every tag
+.vscode/              VS Code: recommended extensions (Lua, StyLua, just) and format on save
 ```
 
 The example tool adds *Tools → My Tool...* to Renoise's menu. Its dialog shows
