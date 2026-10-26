@@ -1,0 +1,10 @@
+{
+  "[lua]": {
+    "editor.defaultFormatter": "JohnnyMorganz.stylua",
+    "editor.formatOnSave": true
+  },
+  "Lua.format.enable": false,
+  "stylua.searchBinaryInPATH": true,
+  "files.associations": { "justfile": "just" },
+  "search.exclude": { "dist/**": true }
+}
