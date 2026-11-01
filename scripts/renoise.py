@@ -266,7 +266,20 @@ def decode(frame):
     return records
 
 
+BRIDGE_PORT_SPAN = 200  # home ports live in DEFAULT_PORT .. DEFAULT_PORT + SPAN - 1
+BRIDGE_PORT_TRIES = 10  # the bridge moves on to home + 1 .. home + 9 when its port is taken
+
+
+def home_port(tool_id):
+    """The bridge's own port for this tool. Must match dev/home_port.lua."""
+    h = 0
+    for b in tool_id.encode():
+        h = (h * 31 + b) % 65521
+    return DEFAULT_PORT + h % BRIDGE_PORT_SPAN
+
+
 def read_port(bundle):
+    """The port the bridge said it bound (dev/.port), else the configured or home port."""
     for candidate in (installed_bundle(bundle) / "dev" / ".port", bundle / "dev" / "port"):
         try:
             first = candidate.read_text().splitlines()[0].strip()
@@ -274,7 +287,36 @@ def read_port(bundle):
                 return int(first)
         except (OSError, IndexError):
             continue
-    return DEFAULT_PORT
+    return home_port(manifest(bundle)["Id"])
+
+
+def candidate_ports(bundle):
+    """Where this tool's bridge can be, most likely first. Several tools in development
+    each run a bridge, so every candidate is checked for identity before use."""
+    ports = [read_port(bundle)]
+    try:
+        first = (bundle / "dev" / "port").read_text().splitlines()[0].strip()
+        base = int(first) if first.isdigit() else home_port(manifest(bundle)["Id"])
+    except (OSError, IndexError):
+        base = home_port(manifest(bundle)["Id"])
+    ports += [base + i for i in range(BRIDGE_PORT_TRIES)]
+    # Bridges from before home ports bound DEFAULT_PORT and up.
+    ports += [DEFAULT_PORT + i for i in range(BRIDGE_PORT_TRIES)]
+    seen, out = set(), []
+    for p in ports:
+        if p not in seen:
+            seen.add(p)
+            out.append(p)
+    return out
+
+
+def bridge_tool(reply):
+    """The tool id a bridge reports (older bridges only report bundle_path)."""
+    tid = reply.get("tool_id")
+    if tid:
+        return tid
+    name = re.split(r"[\\/]", reply.get("bundle_path", "").rstrip("/\\"))[-1]
+    return name[: -len(".xrnx")] if name.endswith(".xrnx") else name
 
 
 def read_token(bundle):
@@ -310,38 +352,11 @@ def host_candidates(explicit=None):
     return out
 
 
-def connect(args, bundle, retry_seconds=3.0):
-    """Open a connection to the bridge. A refused connection is retried for a few
-    seconds, because Renoise restarts the bridge whenever it reloads the tool
-    (e.g. _AUTO_RELOAD_DEBUG firing when Renoise regains focus after a sync)."""
-    port = args.port or (int(os.environ["RENOISE_DEV_PORT"]) if os.environ.get("RENOISE_DEV_PORT") else None) or read_port(bundle)
-    deadline = time.time() + retry_seconds
-    while True:
-        errors = []
-        for host in host_candidates(args.host):
-            try:
-                s = socket.create_connection((host, port), timeout=1.5)
-                s.settimeout(args.timeout)
-                return s, host, port
-            except OSError as e:
-                errors.append("%s:%d (%s)" % (host, port, e))
-        if time.time() >= deadline:
-            break
-        time.sleep(0.3)
-    raise Fail(
-        "cannot connect to the dev bridge: %s. Is Renoise running with the tool installed and loaded? "
-        "Try: just install, then Tools > Reload All Tools in Renoise." % "; ".join(errors),
-        EXIT_CONNECT,
-    )
-
-
-def request(args, bundle, kind, _retry=3.0, **records):
-    records = {"v": "1", "kind": kind, **{k: v for k, v in records.items() if v is not None}}
-    token = read_token(bundle)
-    if token:
-        records["token"] = token
-    s, host, port = connect(args, bundle, retry_seconds=_retry)
+def exchange(host, port, records, timeout, connect_timeout=1.5):
+    """One request on one connection: send a frame, read one frame back."""
+    s = socket.create_connection((host, port), timeout=connect_timeout)
     try:
+        s.settimeout(timeout)
         s.sendall(encode(records))
         buf = b""
         while b"\n" not in buf:
@@ -357,17 +372,88 @@ def request(args, bundle, kind, _retry=3.0, **records):
             if not chunk:
                 raise Fail("connection closed mid-reply", EXIT_REMOTE)
             body += chunk
+    finally:
+        s.close()
+    reply = decode(body[:total])
+    reply["_host"], reply["_port"] = host, str(port)
+    return reply
+
+
+def explicit_port(args):
+    if args.port:
+        return args.port
+    if os.environ.get("RENOISE_DEV_PORT"):
+        return int(os.environ["RENOISE_DEV_PORT"])
+    return None
+
+
+def find_bridge(args, bundle, base_records, retry_seconds=3.0):
+    """Find this tool's bridge and return its ping reply.
+
+    Other tools in development run bridges too, and ports move when tools reload, so
+    each candidate port is pinged and only accepted when it reports this tool's id. A
+    port given with --port / RENOISE_DEV_PORT is used as is. Refused or foreign ports
+    are retried for a few seconds, because Renoise restarts the bridge whenever it
+    reloads the tool."""
+    fixed = explicit_port(args)
+    want = None if fixed else manifest(bundle)["Id"]
+    ping_timeout = min(args.timeout, 3.0)
+    deadline = time.time() + retry_seconds
+    while True:
+        refused, foreign = [], []
+        ports = [fixed] if fixed else candidate_ports(bundle)
+        for host in host_candidates(args.host):
+            for port in ports:
+                try:
+                    # Closed local ports refuse at once; the short timeout only matters for
+                    # WSL hosts that drop packets instead.
+                    reply = exchange(host, port, dict(base_records, kind="ping"), ping_timeout, 0.5)
+                except (OSError, socket.timeout, Fail, ValueError) as e:
+                    refused.append("%s:%d (%s)" % (host, port, e))
+                    continue
+                owner = bridge_tool(reply)
+                if want is None or owner == want:
+                    return reply
+                foreign.append("%s:%d is %s" % (host, port, owner))
+        if time.time() >= deadline:
+            break
+        time.sleep(0.3)
+    if foreign:
+        raise Fail(
+            "cannot find the dev bridge of %s; found other tools instead (%s). It may still be "
+            "starting: retry in a moment, or check that the tool is installed and loaded." % (want, "; ".join(foreign)),
+            EXIT_CONNECT,
+        )
+    raise Fail(
+        "cannot connect to the dev bridge: %s. Is Renoise running with the tool installed and loaded? "
+        "Try: just install, then Tools > Reload All Tools in Renoise." % "; ".join(refused[:3]),
+        EXIT_CONNECT,
+    )
+
+
+def request(args, bundle, kind, _retry=3.0, **records):
+    base = {"v": "1"}
+    token = read_token(bundle)
+    if token:
+        base["token"] = token
+    if not explicit_port(args):
+        # New bridges refuse requests meant for another tool; old ones ignore this.
+        base["tool"] = manifest(bundle)["Id"]
+    pong = find_bridge(args, bundle, base, retry_seconds=_retry)
+    if kind == "ping":
+        return pong
+    host, port = pong["_host"], int(pong["_port"])
+    payload = dict(base, kind=kind, **{k: v for k, v in records.items() if v is not None})
+    try:
+        return exchange(host, port, payload, args.timeout)
     except socket.timeout:
         raise Fail(
             "timeout: no reply from the bridge in %.0fs. Renoise is probably showing a modal dialog or an "
             "error popup; close it (or take a screenshot to see it) and retry." % args.timeout,
             EXIT_TIMEOUT,
         )
-    finally:
-        s.close()
-    reply = decode(body[:total])
-    reply["_host"], reply["_port"] = host, str(port)
-    return reply
+    except OSError as e:
+        raise Fail("lost the dev bridge at %s:%d (%s)" % (host, port, e), EXIT_CONNECT)
 
 
 # --------------------------------------------------------------------------
@@ -814,6 +900,7 @@ def cmd_paths(args):
         info["error"] = e.reason
     info["bridge_hosts"] = ",".join(host_candidates(args.host))
     info["bridge_port"] = str(args.port or read_port(bundle))
+    info["bridge_home_port"] = str(home_port(manifest(bundle)["Id"]))
     info["osc_port"] = str(args.osc_port or os.environ.get("RENOISE_OSC_PORT", DEFAULT_OSC_PORT))
     if PLATFORM == "wsl":
         info["bundle_as_seen_by_renoise"] = renoise_path(bundle)
@@ -1160,7 +1247,7 @@ def build_parser():
     p = argparse.ArgumentParser(prog="renoise.py", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--bundle", help="path to the *.xrnx folder (default: the single one in the repo root)")
     p.add_argument("--host", help="bridge host (default: 127.0.0.1, plus WSL host candidates)")
-    p.add_argument("--port", type=int, help="bridge port (default: dev/.port, dev/port, or %d)" % DEFAULT_PORT)
+    p.add_argument("--port", type=int, help="bridge port, used as is (default: find this tool's bridge from dev/.port, dev/port or its home port)")
     p.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT, help="seconds to wait for a reply (default %s)" % DEFAULT_TIMEOUT)
     p.add_argument("--osc-port", type=int, help="Renoise OSC server port for install/hard reload (default %d)" % DEFAULT_OSC_PORT)
     p.add_argument("--json", action="store_true", help="print one JSON object instead of text")

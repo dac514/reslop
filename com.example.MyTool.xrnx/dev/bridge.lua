@@ -8,6 +8,9 @@
     request must carry it (renoise.py install writes both for WSL setups).
   * Socket callbacks run on Renoise's main thread: never block, never call
     client:receive(), never close sockets here (the client closes).
+  * Several tools can be in development at once: each bridge listens on its
+    own home port (dev/home_port.lua, from the tool id) and refuses requests
+    whose `tool` record names another tool.
 
   Wire format (both directions, binary safe):
     <total_len>\n<records>
@@ -15,8 +18,8 @@
 ]]
 
 local commands = require "dev.commands"
+local home_port = require "dev.home_port"
 
-local DEFAULT_PORT = 18765
 local MAX_REPLY = 1024 * 1024
 local SEND_CHUNK = 32 * 1024
 local BUFFER_TTL = 30 -- seconds
@@ -120,6 +123,7 @@ end
 ---@field bind string
 ---@field token string?
 ---@field bundle_path string
+---@field tool_id string? Tool id from the bundle folder name (`com.you.Tool`).
 ---@field ring BridgeRing
 ---@field server renoise.Socket.SocketServer?
 ---@field buffers table<string, { data: string, t: integer }>
@@ -265,6 +269,15 @@ end
 ---@param records table<string, string>
 ---@return string reply
 function Bridge.dispatch(records)
+  -- Several tools in development each run a bridge. A request addressed to
+  -- another tool must never run here (the CLI may have found the wrong port).
+  if records.tool and state.tool_id and records.tool ~= state.tool_id then
+    return encode {
+      status = "error",
+      error = ("wrong bridge: this is %s, not %s"):format(state.tool_id, records.tool),
+      tool_id = state.tool_id,
+    }
+  end
   local kind = records.kind or "?"
   local handler = commands[kind]
   if not handler then
@@ -403,7 +416,10 @@ end
 function Bridge.start()
   Bridge.stop()
   local bp = bundle_path()
-  local port = tonumber(trim(read_file(bp .. "dev/port") or "")) or DEFAULT_PORT
+  local tool_id = home_port.tool_id(bp)
+  local port = tonumber(trim(read_file(bp .. "dev/port") or ""))
+    or (tool_id and home_port.for_tool(tool_id))
+    or home_port.BASE
   local bind = trim(read_file(bp .. "dev/bind") or "")
   if bind == "" then
     bind = "127.0.0.1"
@@ -428,6 +444,7 @@ function Bridge.start()
     bind = bind,
     token = token,
     bundle_path = bp,
+    tool_id = tool_id,
     ring = Ring.new(RING_SIZE),
     server = nil,
     buffers = {},

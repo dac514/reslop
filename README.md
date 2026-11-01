@@ -60,6 +60,7 @@ tests/                unit tests that run without Renoise (`just test`)
 definitions/          the Renoise API, annotated, for the type checker and coding assistants
 docs/renoise/         the Renoise scripting guide, offline
 CLAUDE.md             the canonical briefing for Claude Code
+UPGRADING.md          bring later kit fixes into a project made from an older ReSlop
 .github/copilot-instructions.md
                       the briefing for GitHub Copilot and Copilot CLI
 .github/workflows/    checks on every push; a release with the .xrnx on every tag
@@ -97,7 +98,7 @@ Then:
 just doctor      # lists what is missing and where to get it
 just init com.yourname.ToolName "Tool Name" "Your Name [you@example.com]"
 just install     # Renoise copies the tool into its Tools folder and loads it
-just ping        # ok bridge at 127.0.0.1:18765 ...
+just ping        # ok bridge at 127.0.0.1:18xxx, tool_id=com.yourname.ToolName ...
 ```
 
 No `just` yet? Every recipe is a one-liner around the script, so
@@ -121,7 +122,7 @@ just package        # dist/<Id>.xrnx, ready to share (the dev bridge is left out
 
 Renoise has no command line, and `print` only reaches its Scripting Terminal.
 So the kit ships a small **dev bridge** inside the tool (`dev/bridge.lua`): a
-TCP server on `127.0.0.1:18765`, living in the tool's own Lua state, loaded
+TCP server on `127.0.0.1`, on a port of its own (see below), living in the tool's own Lua state, loaded
 only while `dev/` exists and never included by `just package`. The
 `scripts/renoise.py` CLI talks to the bridge:
 
@@ -140,6 +141,19 @@ Renoise's OSC server is used only as a trigger (`/renoise/evaluate` →
 Screenshots are best effort per OS: on X11 every Renoise window is captured,
 so an open tool dialog lands in its own PNG; elsewhere you get the whole screen
 (`spectacle`, `gnome-screenshot`, `grim`, `screencapture`, PowerShell).
+
+## Several tools at once
+
+Working on more than one tool? Install them all; they get along. Each tool's
+bridge listens on its own **home port**, worked out from the tool id (between
+18765 and 18964), and `renoise.py` checks that the bridge it reaches really
+belongs to your project before it sends anything. A bridge also refuses
+requests meant for another tool. To talk to a different tool's bridge on
+purpose, pass `--port N`.
+
+Made your project from an older ReSlop? Older bridges all wanted port 18765,
+so commands could end up in the wrong tool. [UPGRADING.md](UPGRADING.md) has
+the fix, with a prompt you can paste into your coding assistant.
 
 ## Platform notes
 
