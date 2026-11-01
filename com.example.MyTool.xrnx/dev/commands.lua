@@ -25,6 +25,7 @@ function M.ping(_, ctx)
     port = tostring(ctx.port),
     bind = ctx.bind,
     bundle_path = ctx.bundle_path,
+    tool_id = ctx.tool_id,
     renoise_version = renoise.RENOISE_VERSION,
     api_version = tostring(renoise.API_VERSION),
     platform = os.platform(),

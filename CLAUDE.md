@@ -58,7 +58,8 @@ Eval helpers available as the global `dev`: `dev.dialog([name])`, `dev.view(id)`
 "click" programmatically), `dev.log(...)`. `APP` is the application module.
 
 If `renoise.py` exits 3, Renoise is not running or the tool is not installed/loaded
-(`just install`). If it exits 4, Renoise is probably stuck on a dialog: take a
+(`just install`); if its message says it "found other tools instead", this tool's bridge is
+still starting (retry in a moment) or not loaded. If it exits 4, Renoise is probably stuck on a dialog: take a
 screenshot and tell the user instead of retrying blindly. If `reload-soft` reports a
 Lua error, the old module stays stopped (menus gone) until a reload succeeds. A full
 `reload` that fails to load leaves Renoise showing an error popup and running the old
@@ -92,6 +93,12 @@ When asked to set the project up, do all of this, in order, and report at the en
    bridge does not answer, say exactly which of those is missing instead of guessing.
 5. `just ping` and `just song`, then tell the user what you can see (song name, BPM).
 
+## Updating a project made from an older ReSlop
+
+When asked to bring in kit fixes, read `UPGRADING.md` in https://github.com/dac514/reslop (main) and
+apply the entries newer than this project. Diff each kit file before replacing it and merge any
+project-specific changes; never rename the project's own `<Id>.xrnx` folder or ids.
+
 ## Directory map
 
 ```
@@ -111,7 +118,8 @@ docs/renoise/                 vendored xrnx guide pages (start/, guide/)
 <Id>.xrnx/src/ui.lua          ViewBuilder dialog; returns (vb, root)
 <Id>.xrnx/src/labels.lua      pure Lua (no renoise.*): the dialog's label strings; the unit-tested example
 tests/helper.lua              check/eq/fails/done for test files; tests/*_test.lua run under LuaJIT via `just test`
-<Id>.xrnx/dev/                dev bridge (bridge.lua, commands.lua, serialize.lua); never shipped
+<Id>.xrnx/dev/                dev bridge (bridge.lua, commands.lua, serialize.lua, home_port.lua); never shipped
+UPGRADING.md                  later kit fixes for projects made from an older ReSlop, with paste-in prompts
 ```
 
 ## Hard constraints
@@ -184,6 +192,16 @@ tests/helper.lua              check/eq/fails/done for test files; tests/*_test.l
   are not flagged.
 
 ## Renoise facts learned while building this kit
+
+- Several tools in development can be installed at once, each with its own bridge. Each bridge
+  listens on a **home port** from its tool id (`dev/home_port.lua`; `home_port()` in
+  `scripts/renoise.py` must compute the same number, `tests/home_port_test.lua` pins both).
+  `renoise.py` pings candidate ports and only uses the one whose `tool_id` matches this project;
+  the bridge refuses requests whose `tool` record names another tool. `--port N` skips the check.
+  Never "fix" a clash by uninstalling another tool.
+- A program started with `os.execute` inherits Renoise's open sockets, including every bridge's
+  listening port: while it runs, a reloaded tool cannot bind its port again. Programs a tool
+  launches should close inherited descriptors (or be started through the OS shell).
 
 - `print` goes only to Renoise's Scripting Terminal (not Log.txt, not stdout); the bridge
   captures it, so `just eval`/`just log` is the way to read it.
