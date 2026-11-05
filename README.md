@@ -61,8 +61,7 @@ definitions/          the Renoise API, annotated, for the type checker and codin
 docs/renoise/         the Renoise scripting guide, offline
 CLAUDE.md             the canonical briefing for Claude Code
 UPGRADING.md          bring later kit fixes into a project made from an older ReSlop
-.github/copilot-instructions.md
-                      the briefing for GitHub Copilot and Copilot CLI
+.github/              instructions for GitHub Copilot and Copilot CLI
 .github/workflows/    checks on every push; a release with the .xrnx on every tag
 .vscode/              VS Code: recommended extensions (Lua, StyLua, just) and format on save
 ```
@@ -82,9 +81,10 @@ does for you.
 Install five things: [just](https://github.com/casey/just) (runs the chores),
 [StyLua](https://github.com/JohnnyMorganz/StyLua) (formats Lua),
 [lua-language-server](https://github.com/LuaLS/lua-language-server) 3.13.6 or
-newer (checks Lua against the Renoise API), [LuaJIT](https://luajit.org)
-(runs the unit tests), and Python 3.8 or newer (runs the script; no packages
-needed).
+newer (checks Lua against the Renoise API),
+[LuaJIT](https://luajit.org/download.html) (runs the unit tests), and
+[Python 3.8 or newer](https://www.python.org/downloads/) (runs the script; no
+packages needed).
 
 - macOS: `brew install just stylua lua-language-server luajit`
 - Windows: `winget install Casey.Just JohnnyMorganz.StyLua LuaLS.lua-language-server Python.Python.3.13`
@@ -122,9 +122,9 @@ just package        # dist/<Id>.xrnx, ready to share (the dev bridge is left out
 
 Renoise has no command line, and `print` only reaches its Scripting Terminal.
 So the kit ships a small **dev bridge** inside the tool (`dev/bridge.lua`): a
-TCP server on `127.0.0.1`, on a port of its own (see below), living in the tool's own Lua state, loaded
-only while `dev/` exists and never included by `just package`. The
-`scripts/renoise.py` CLI talks to the bridge:
+TCP server on `127.0.0.1` with its own port (shown by `just ping`), living in
+the tool's own Lua state. It is loaded only while `dev/` exists and never
+included by `just package`. The `scripts/renoise.py` CLI talks to the bridge:
 
 - `eval` runs Lua with full access to the tool (`APP`, `renoise`, `io`), captures
   `print` output and returns values as text.
@@ -142,18 +142,15 @@ Screenshots are best effort per OS: on X11 every Renoise window is captured,
 so an open tool dialog lands in its own PNG; elsewhere you get the whole screen
 (`spectacle`, `gnome-screenshot`, `grim`, `screencapture`, PowerShell).
 
-## Several tools at once
+## Upgrading
 
-Working on more than one tool? Install them all; they get along. Each tool's
-bridge listens on its own **home port**, worked out from the tool id (between
-18765 and 18964), and `renoise.py` checks that the bridge it reaches really
-belongs to your project before it sends anything. A bridge also refuses
-requests meant for another tool. To talk to a different tool's bridge on
-purpose, pass `--port N`.
+Projects created from ReSlop don't receive later kit updates automatically.
+To bring a project up to date, ask your coding assistant:
 
-Made your project from an older ReSlop? Older bridges all wanted port 18765,
-so commands could end up in the wrong tool. [UPGRADING.md](UPGRADING.md) has
-the fix, with a prompt you can paste into your coding assistant.
+> Check the latest upgrade instructions in
+> [ReSlop's UPGRADING.md](https://github.com/dac514/reslop/blob/main/UPGRADING.md)
+> and apply all updates relevant to this project. Preserve project-specific
+> changes and verify the result.
 
 ## Platform notes
 
