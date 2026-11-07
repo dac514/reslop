@@ -118,6 +118,12 @@ just screenshot     # PNG of the Renoise window and any open dialog, into dist/
 just package        # dist/<Id>.xrnx, ready to share (the dev bridge is left out)
 ```
 
+To publish on renoise.com, upload `dist/<Id>.xrnx` at
+[renoise.com/submit/tool](https://www.renoise.com/submit/tool). The tool page
+shows your tool's `README.md`, plus a `cover.png` (600x350) and a
+`thumbnail.png` (120x45) from the tool folder. `CLAUDE.md` lists the site's
+other rules.
+
 ## How your assistant sees Renoise
 
 Renoise has no command line, and `print` only reaches its Scripting Terminal.

@@ -13,6 +13,47 @@ hand; the steps are listed too.
 In the commands below, `<Id>.xrnx` is your tool's folder, for example
 `com.yourname.ToolName.xrnx`.
 
+## 2026-11: publishing on renoise.com
+
+**The problem.** The renoise.com tool page is built from the uploaded `.xrnx`,
+not from the fields you can edit on the site. The page shows the tool's
+`README.md` and takes its images from `cover.png` and `thumbnail.png` in the
+archive. The site stretches images of other sizes to fit, so a tall dialog
+screenshot comes out squashed. The manifest `<Description>` is cut at 120
+characters in the tools list.
+
+The template itself is not affected. It ships no images on purpose.
+
+**The fix.**
+- `CLAUDE.md` has a new section, *Publishing on renoise.com*, with the site's
+  rules: the archive size, the README, the Description length, the image names
+  and sizes, and a check before uploading.
+- The directory map in `CLAUDE.md` lists `cover.png` and `thumbnail.png`.
+- `README.md` says where to upload and which images to add.
+
+**Files:**
+- `CLAUDE.md`
+- `README.md`
+
+**Prompt for your coding assistant:**
+
+```text
+Bring the "publishing on renoise.com" notes from ReSlop into this project, following the
+matching 2026-11 entry of https://github.com/dac514/reslop/blob/main/UPGRADING.md.
+Add the "Publishing on renoise.com" section and the cover.png line of the directory map
+from ReSlop's CLAUDE.md to our CLAUDE.md. Then check our tool against that section: count
+the characters of <Description> in manifest.xml, and report whether cover.png and
+thumbnail.png exist in the tool folder and what size they are. Do not draw images unless
+I ask. Show me the diff before committing.
+```
+
+**By hand:**
+
+```sh
+file <Id>.xrnx/cover.png <Id>.xrnx/thumbnail.png
+just package && unzip -l dist/<Id>.xrnx
+```
+
 ## 2026-11: tools that fail to load when Renoise starts
 
 **The problem.** Renoise loads tools before it has finished starting. In that
