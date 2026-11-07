@@ -217,8 +217,16 @@ UPGRADING.md                  later kit fixes for projects made from an older Re
   after a file changed, and *opening a dialog counts as regaining focus*. That is why it is off
   in `main.lua` and `just reload` goes through OSC instead.
 - A tool's custom dialog is a separate OS window; `just screenshot` captures it as its own PNG.
+- Renoise loads tools before it has finished starting. In that phase `renoise.app().theme` and
+  `renoise.app().theme_observable` raise "can not access the application theme while the
+  application initializes", and the tool fails to load. `just install` and `just reload` run
+  on a Renoise that is already up, so they never show it: only a fresh Renoise start does.
+  Keep `App.start` to menus, key bindings and `renoise.tool()` observables; register
+  `renoise.app()` observables when a dialog first opens (in `App.show_dialog`).
 
 ## Git
 
 - Tags `vX.YY` must match `manifest.xml` `<Version>`; pushing one publishes a GitHub release.
 - CI must be green: StyLua, LuaLS, `test` and `package`.
+- Before tagging, quit Renoise, start it again and check that the tool loads without a
+  "Scripting Tool Error". Installs and reloads never load the tool during Renoise's startup.

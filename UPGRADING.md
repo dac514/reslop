@@ -13,6 +13,55 @@ hand; the steps are listed too.
 In the commands below, `<Id>.xrnx` is your tool's folder, for example
 `com.yourname.ToolName.xrnx`.
 
+## 2026-11: tools that fail to load when Renoise starts
+
+**The problem.** Renoise loads tools before it has finished starting. In that
+phase, any use of `renoise.app().theme` or `renoise.app().theme_observable`
+raises "can not access the application theme while the application
+initializes", and the tool fails to load. `just install` and `just reload` run
+on a Renoise that is already up, so they never show the error. Only a fresh
+start of Renoise does. A tool can pass every check and still fail for everyone
+who installs it.
+
+The template itself is not affected. Your tool is affected when `App.start()`,
+or code at module level, reads the theme. One example is registering a notifier
+on `theme_observable` so a dialog can follow theme changes.
+
+**The fix.**
+- `CLAUDE.md` records this under *Renoise facts learned while building this
+  kit*. Only the theme is known to fail. Registering all `renoise.app()`
+  observables when a dialog first opens avoids the whole problem.
+- The *Git* section of `CLAUDE.md` asks for one fresh Renoise start before you
+  tag a release.
+- The rules at the top of `src/app.lua` say the same in one line.
+
+**Files:**
+- `CLAUDE.md`
+- `<Id>.xrnx/src/app.lua` (a comment only)
+
+**Prompt for your coding assistant:**
+
+```text
+Bring the "tools that fail to load when Renoise starts" note from ReSlop into this project,
+following the matching 2026-11 entry of https://github.com/dac514/reslop/blob/main/UPGRADING.md.
+Add its bullet to the "Renoise facts learned while building this kit" section of our
+CLAUDE.md, its line to the Git section, and its line to the rules at the top of
+src/app.lua. Then search App.start(), everything it calls, and module-level code in src/
+for renoise.app().theme and theme_observable. Move any use you find to the code that
+opens the dialog. Run just check and just reload. Then ask me to quit Renoise, start it
+again, and confirm that no "Scripting Tool Error" appears. Show me the diff before committing.
+```
+
+**By hand:**
+
+```sh
+grep -rn "theme" <Id>.xrnx/src
+```
+
+Move any theme use out of `App.start()` and module-level code, into the code
+that opens your dialog. Then quit Renoise, start it again, and check that no
+"Scripting Tool Error" appears.
+
 ## 2026-11: several tools in development at once
 
 **The problem.** Every tool made from ReSlop has a dev bridge, and every bridge

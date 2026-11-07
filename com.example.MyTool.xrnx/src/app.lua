@@ -7,6 +7,9 @@
   Rules:
   * Register only through `App.reg.*` and `App.register_dialog`.
   * No side effects at module level; do them in `App.start()`.
+  * `App.start()` can run while Renoise is still starting, when reading
+    `renoise.app().theme` raises an error. Register `renoise.app()`
+    observables when a dialog first opens instead.
   * Wrap callbacks that Renoise invokes with `App.guard` so errors reach the
     dev log.
   * Inside song list notifiers, read dependents through `App.defer`.
