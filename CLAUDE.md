@@ -251,7 +251,9 @@ moderator in https://forum.renoise.com/t/editing-tools-on-the-site/79811 .
   the manifest can name other files.
 - The site resizes covers to 600x350 and stretches them if needed, so a tall dialog
   screenshot comes out squashed. Draw the cover at 600x350 and keep the screenshot's
-  proportions. The submit page asks for 125x45 thumbnails, but the site serves them at 120x45.
+  proportions.
+- Draw the thumbnail at 120x45, the size the site serves. The submit page says 125x45, but
+  every thumbnail on the site is 120x45.
 - Put the images in the archive. In November 2026, images changed on the site after an
   upload did not always stick.
 - `just package` ships every file in the bundle except `dev/` and `preferences.xml`, so
