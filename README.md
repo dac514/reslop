@@ -58,6 +58,7 @@ scripts/renoise.py    one small Python script that does all the chores below
 justfile              short names for the chores, so you can type `just reload`
 tests/                unit tests that run without Renoise (`just test`)
 definitions/          the Renoise API, annotated, for the type checker and coding assistants
+docs/                 setup steps and renoise.com rules, for your assistant
 docs/renoise/         the Renoise scripting guide, offline
 CLAUDE.md             the canonical briefing for Claude Code
 UPGRADING.md          bring later kit fixes into a project made from an older ReSlop
@@ -121,8 +122,8 @@ just package        # dist/<Id>.xrnx, ready to share (the dev bridge is left out
 To publish on renoise.com, upload `dist/<Id>.xrnx` at
 [renoise.com/submit/tool](https://www.renoise.com/submit/tool). The tool page
 shows your tool's `README.md`, plus a `cover.png` (600x350) and a
-`thumbnail.png` (120x45) from the tool folder. `CLAUDE.md` lists the site's
-other rules.
+`thumbnail.png` (120x45) from the tool folder. `docs/publishing.md` lists the
+site's other rules.
 
 ## How your assistant sees Renoise
 
