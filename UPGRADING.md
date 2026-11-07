@@ -18,6 +18,40 @@ project, or follow its steps by hand. These rules apply to every entry:
 - Skip an entry whose changes your project already has.
 - Run the checks the entry names. An assistant shows you the diff before committing.
 
+## 2026-11: shorter CLAUDE.md
+
+**The problem.** Claude Code loads `CLAUDE.md` in every session. The kit's copy had grown
+to 18.8 KB, and several facts in it were stated two or three times. That cost about 1,000
+tokens in every session, for no gain.
+
+**The fix.** ReSlop's `CLAUDE.md` now states each fact once. The setup steps moved to
+`docs/setup.md` and the renoise.com rules to `docs/publishing.md`, which Claude reads only
+when needed. Their headings stay in `CLAUDE.md`, each with a one-line pointer. No rule was
+dropped and no code changed, so this entry is optional.
+
+**Steps:**
+
+1. Apply the older entries first. ReSlop's `CLAUDE.md` describes their files, such as
+   `dev/home_port.lua` and `tests/helper.lua`.
+2. Copy `docs/setup.md` and `docs/publishing.md` from ReSlop.
+   ```sh
+   mkdir -p docs && cp /tmp/reslop/docs/setup.md /tmp/reslop/docs/publishing.md docs/
+   ```
+3. Find what your project added to `CLAUDE.md`. Your first commit has the kit's copy, so
+   this diff shows your own notes. It also shows kit fixes from earlier entries.
+   ```sh
+   git diff $(git rev-list --max-parents=0 HEAD) -- CLAUDE.md
+   ```
+4. Replace the kit text in your `CLAUDE.md` with ReSlop's, and keep your own notes. The
+   first section of ReSlop's copy names the template's placeholder folder. Put your own
+   folder name there.
+5. Read `git diff CLAUDE.md`. Every heading of your old file must still be there, and
+   every removed line must be kit text that ReSlop removed or moved to `docs/`.
+6. If your `README.md` says that `CLAUDE.md` lists the renoise.com rules, point it at
+   `docs/publishing.md` instead.
+
+**Prompt:** `Apply the "2026-11: shorter CLAUDE.md" entry of https://github.com/dac514/reslop/blob/main/UPGRADING.md, following the rules at the top of that page.`
+
 ## 2026-11: publishing on renoise.com
 
 **The problem.** The renoise.com tool page is built from the uploaded `.xrnx`, not from
