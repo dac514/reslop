@@ -7,6 +7,9 @@ moderator in https://forum.renoise.com/t/editing-tools-on-the-site/79811 .
 - The site matches an upload by the manifest `<Id>`. A known Id adds a new version to that
   tool, and an unknown Id creates a new tool. The page does not say what happens when the
   version is already there, so upload each `<Version>` once.
+- `<Category>` must use the names from the list in `docs/renoise/start/tool.md` (several,
+  comma separated, e.g. `Pattern, MIDI`). Anything else, such as `Pattern Editor`, makes the
+  upload fail with "invalid category".
 - The `.xrnx` must be 16 MB or smaller. Its uncompressed size must be at most 8 times that.
 - The tool page shows the `README.md` at the root of the archive, or the file that
   `<DocumentationPath>` names. That file is the page, so keep it as the user guide.
